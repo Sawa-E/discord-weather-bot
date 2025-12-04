@@ -1,0 +1,36 @@
+name: Weather Bot
+
+# スケジュール: 毎日JST 0時に実行
+on:
+  schedule:
+    - cron: "0 15 * * *" # UTC 15:00 = JST 0:00
+  workflow_dispatch: # 手動実行も可能
+
+jobs:
+  post-weather:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: チェックアウト
+        uses: actions/checkout@v3
+
+      - name: Pythonセットアップ
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.9"
+
+      - name: 依存関係インストール
+        run: |
+          pip install -r requirements.txt
+
+      - name: 天気予報を投稿
+        env:
+          OPENWEATHER_API_KEY: ${{ secrets.OPENWEATHER_API_KEY }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          TIMEZONE: Asia/Tokyo
+          SCHEDULE_HOUR: 0
+          SCHEDULE_MINUTE: 0
+          LATITUDE: 35.6762
+          LONGITUDE: 139.6503
+        run: |
+          python bot.py
