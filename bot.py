@@ -3,6 +3,7 @@ from datetime import datetime
 import config
 import weather
 import recommend
+import pytz
 
 
 def create_embed_message(weather_info, clothing, items):
@@ -22,6 +23,10 @@ def create_embed_message(weather_info, clothing, items):
     
     # 天気アイコンのURL
     icon_url = f"https://openweathermap.org/img/wn/{weather_info['weather_icon']}@2x.png"
+
+    # 現在時刻（JST）
+    jst = pytz.timezone('Asia/Tokyo')
+    now = datetime.now(jst)
     
     embed = {
         "embeds": [{
@@ -65,7 +70,7 @@ def create_embed_message(weather_info, clothing, items):
                 "url": icon_url
             },
             "footer": {
-                "text": f"更新: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+                "text": f"更新: {now.strftime('%Y-%m-%d %H:%M')}"
             }
         }]
     }
@@ -103,9 +108,11 @@ def post_weather_forecast():
     """
     天気予報を取得してDiscordに投稿する
     """
+    jst = pytz.timezone('Asia/Tokyo')
+    now = datetime.now(jst)
     print("=" * 60)
     print(f"Discord天気予報Bot (GitHub Actions)")
-    print(f"実行時刻: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"実行時刻(JST): {now.strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"対象地域: 東京 (緯度: {config.LATITUDE}, 経度: {config.LONGITUDE})")
     print("=" * 60)
     
