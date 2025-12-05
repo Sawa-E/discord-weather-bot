@@ -131,7 +131,7 @@ def analyze_weather_changes(forecasts):
 def parse_weather_data(data):
     """
     APIから取得した生データを、使いやすい形に整形する
-    実行した日の0時から24時間分のデータを取得
+    🆕 実行時刻から24時間分のデータを取得
     
     Args:
         data: get_weather_data()で取得したデータ
@@ -146,36 +146,45 @@ def parse_weather_data(data):
         now = datetime.now()
         print(f"\n⏰ 実行時刻: {now.strftime('%Y-%m-%d %H:%M:%S')}")
         
-        # 🆕 実行した日の0時から24時間の範囲を設定
-        target_date_start = datetime(now.year, now.month, now.day, 0, 0, 0)
-        target_date_end = target_date_start + timedelta(hours=24)
+        # 🆕 実行時刻から24時間分のデータを取得
+        # OpenWeatherMap APIは3時間ごとのデータなので、
+        # 次の3時間区切り(3時、6時、9時...)から24時間分を取得
+        
+        # 次の3時間区切りの時刻を計算
+        # 例: 0時に実行 → 3時スタート
+        #     4時に実行 → 6時スタート
+        next_3hour = ((now.hour // 3) + 1) * 3
+        
+        if next_3hour >= 24:
+            # 24時を超える場合は翌日の0時スタート
+            target_start = datetime(now.year, now.month, now.day, 0, 0, 0) + timedelta(days=1)
+        else:
+            target_start = datetime(now.year, now.month, now.day, next_3hour, 0, 0)
+        
+        target_end = target_start + timedelta(hours=24)
         
         # 解説:
-        # target_date_start = 2025-12-04 00:00:00
-        # target_date_end   = 2025-12-05 00:00:00
-        # つまり12月4日の0時から24時間(12月5日0時まで)
+        # 0時に実行 → next_3hour = 3 → 今日の3時〜翌日3時(24時間)
+        # 1時に実行 → next_3hour = 3 → 今日の3時〜翌日3時(24時間)
+        # 4時に実行 → next_3hour = 6 → 今日の6時〜翌日6時(24時間)
         
-        print(f"📅 対象日: {target_date_start.strftime('%Y年%m月%d日')}")
-        print(f"🔍 検索範囲: {target_date_start.strftime('%m/%d %H:%M')} 〜 {target_date_end.strftime('%m/%d %H:%M')}")
+        print(f"📅 対象期間: {target_start.strftime('%Y年%m月%d日 %H時')} 〜 {target_end.strftime('%Y年%m月%d日 %H時')}")
+        print(f"🔍 24時間分のデータを取得します")
         
-        # 🆕 24時間分のデータを抽出
+        # 24時間分のデータを抽出
         target_forecasts = []
         
         for item in data['list']:
             forecast_time = datetime.fromtimestamp(item['dt'])
             
-            # 解説:
-            # target_date_start <= forecast_time < target_date_end
-            # 例: 12/04 00:00 <= データ時刻 < 12/05 00:00
-            
-            if target_date_start <= forecast_time < target_date_end:
+            if target_start <= forecast_time < target_end:
                 target_forecasts.append(item)
         
         print(f"📊 取得データ: {len(target_forecasts)}件")
         
         # データの時刻を表示
         if target_forecasts:
-            times = [datetime.fromtimestamp(item['dt']).strftime('%H:%M') for item in target_forecasts]
+            times = [datetime.fromtimestamp(item['dt']).strftime('%m/%d %H時') for item in target_forecasts]
             print(f"   時刻: {', '.join(times)}")
         else:
             print("❌ データが取得できませんでした")
@@ -183,14 +192,14 @@ def parse_weather_data(data):
         
         forecasts = target_forecasts
         
-        # 🆕 気温データを集める
+        # 気温データを集める
         temps = [item['main']['temp'] for item in forecasts]
         temp_min = min(temps)
         temp_max = max(temps)
         
         print(f"🌡️  気温範囲: {round(temp_min, 1)}℃ 〜 {round(temp_max, 1)}℃")
         
-        # 🆕 時間帯別の気温を取得
+        # 時間帯別の気温を取得
         morning_temp = None   # 6時〜8時
         noon_temp = None      # 12時〜14時
         evening_temp = None   # 15時〜17時
@@ -221,9 +230,7 @@ def parse_weather_data(data):
                 night_temp = temp
                 print(f"   夜の気温: {round(temp, 1)}℃ ({hour}時)")
         
-        # 🆕 データがない時間帯の補完
-        # 各時間帯に最も近いデータを探す
-        
+        # データがない時間帯の補完
         if morning_temp is None:
             # 朝のデータがない場合、0時〜11時の範囲で最も近いものを探す
             morning_candidates = []
@@ -234,7 +241,7 @@ def parse_weather_data(data):
                     morning_candidates.append(item['main']['temp'])
             
             if morning_candidates:
-                morning_temp = min(morning_candidates)  # 午前中の最低気温
+                morning_temp = min(morning_candidates)
                 print(f"⚠️  朝のデータがないため午前中の最低気温を使用: {round(morning_temp, 1)}℃")
             else:
                 morning_temp = temp_min
@@ -250,7 +257,7 @@ def parse_weather_data(data):
                     noon_candidates.append(item['main']['temp'])
             
             if noon_candidates:
-                noon_temp = max(noon_candidates)  # 昼間の最高気温
+                noon_temp = max(noon_candidates)
                 print(f"⚠️  昼のデータがないため昼間の最高気温を使用: {round(noon_temp, 1)}℃")
             else:
                 noon_temp = temp_max
@@ -266,7 +273,7 @@ def parse_weather_data(data):
                     night_candidates.append(item['main']['temp'])
             
             if night_candidates:
-                night_temp = sum(night_candidates) / len(night_candidates)  # 夜の平均気温
+                night_temp = sum(night_candidates) / len(night_candidates)
                 print(f"⚠️  夜のデータがないため夜間の平均気温を使用: {round(night_temp, 1)}℃")
             else:
                 # 朝と昼の中間値
@@ -287,8 +294,9 @@ def parse_weather_data(data):
         pop = max(pops) * 100
         print(f"💧 降水確率: {round(pop, 0)}%")
         
-        # 日付表示
-        date_str = target_date_start.strftime('%Y年%m月%d日(%a)')
+        # 🆕 日付表示は「今日」の日付を使う
+        # 3時スタートでも「今日」の日付で表示
+        date_str = now.strftime('%Y年%m月%d日(%a)')
         weekday_dict = {
             'Mon': '月', 'Tue': '火', 'Wed': '水',
             'Thu': '木', 'Fri': '金', 'Sat': '土', 'Sun': '日'
@@ -312,3 +320,34 @@ def parse_weather_data(data):
     except (KeyError, IndexError) as e:
         print(f"❌ 天気データの解析に失敗しました: {e}")
         return None
+
+
+# テスト用のコード
+if __name__ == '__main__':
+    print("=" * 60)
+    print("       天気データ取得テスト")
+    print("=" * 60)
+    
+    raw_data = get_weather_data()
+    
+    if raw_data:
+        weather_info = parse_weather_data(raw_data)
+        
+        if weather_info:
+            print("\n" + "=" * 60)
+            print("       取得結果")
+            print("=" * 60)
+            print(f"📅 日付: {weather_info['date']}")
+            print(f"☁️  天気: {weather_info['weather_description']}")
+            print(f"🌡️  気温:")
+            print(f"   最低: {weather_info['temp_min']}℃ / 最高: {weather_info['temp_max']}℃")
+            print(f"   朝: {weather_info['morning_temp']}℃")
+            print(f"   昼: {weather_info['noon_temp']}℃")
+            print(f"   夜: {weather_info['night_temp']}℃")
+            print(f"💧 降水確率: {weather_info['pop']}%")
+            print("=" * 60)
+            print("\n✅ テスト成功!")
+        else:
+            print("\n❌ データの解析に失敗しました")
+    else:
+        print("\n❌ データの取得に失敗しました")
